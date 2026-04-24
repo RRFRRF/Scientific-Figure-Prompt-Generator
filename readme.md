@@ -9,16 +9,40 @@ This is a **Hermes-compatible skill** that transforms your technical description
 Unlike raw prompt templates, this skill provides:
 
 - **Interactive style selection** with 7 curated presets
+- **Global style document** (`global_style.md`) for multi-figure consistency — generate once, reuse across all figures in a paper
 - **Structured output** with exact hex color values, layout specs, and negative prompts
 - **Three-phase reasoning** (Understand → Think → Design) running internally — you only see the final prompt
 - **Publication-ready defaults** — white background, flat design, no gradients, no 3D, light color palette
 
 ## Quick Start
 
+### First Figure (generates global style)
+
 1. Invoke the skill: `scientific-figure-prompt`
 2. Provide: visualization goal, technical content, scene description, language
-3. Pick a style preset (or go with the default)
-4. Get a structured AI drawing prompt — copy to your image generator
+3. Pick a style preset (or go with the default P1)
+4. Get two outputs:
+   - **`global_style.md`** — save this! You'll reuse it for all subsequent figures
+   - **Drawing prompt** — copy to your image generator
+
+### Subsequent Figures (reuses global style)
+
+1. Invoke the skill again
+2. Provide: visualization goal, technical content, scene description
+3. **Paste your saved `global_style.md`** into the global_style field
+4. Get only the drawing prompt — colors, fonts, shapes all consistent with your first figure
+
+## Global Style Document
+
+The key innovation for multi-figure consistency. One paper often needs 5-10 figures — they must share the same visual language.
+
+| Scenario | Behavior |
+|----------|----------|
+| No `global_style` provided | Generate + output `global_style.md` (save it!) + output prompt |
+| Fuzzy style hints (e.g., "blue-ish") | Generate `global_style.md` based on hints + P1 default + output prompt |
+| Full `global_style.md` pasted | Use it directly, only output prompt |
+
+The `global_style.md` locks down: color palette (hex), typography, shapes/strokes, visual rules, technical specs, negative prompt.
 
 ## 7 Style Presets
 

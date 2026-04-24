@@ -24,13 +24,85 @@ user-invocable: true
 | **technical_content** | ✅ | 要可视化的技术内容：系统/算法/概念，关键组件、关系、数据流 |
 | **scene_description** | ✅ | 大致场景描述：几个模块、大致布局方向、重点突出什么 |
 | **language** | ✅ | 标注语言：中文 / 英文 / 中英双语 |
+| **global_style** | ❌ | 全局绘图风格 md（已有则粘贴；无则留空，系统会生成） |
 | **special_requirements** | ❌ | 特殊约束：必须突出 X、避免 Y、类似某论文风格等 |
 
 如果用户消息中已包含部分信息，只需补充缺失项。
 
-### Step 2: 风格选择（交互式）
+### Step 2: 全局绘图风格处理
 
-用 `clarify` 提供预设方案，同时允许用户自定义：
+这是多图风格一致性的核心机制。一篇论文/汇报通常需要多张配图，必须共享同一套视觉语言。
+
+#### 判断逻辑
+
+```
+IF 用户提供了 global_style (完整的 md 格式全局风格文档):
+    → 直接使用，跳过风格选择，进入 Step 4
+    → 该 global_style 的色板/字体/形状/规格将注入当前及后续所有 prompt
+
+ELIF 用户提供了模糊风格要求 (如 "蓝色系"、"偏简约"):
+    → 基于模糊要求 + 默认预设 P1 生成 global_style.md
+    → 输出 global_style.md 给用户保存
+    → 进入 Step 4
+
+ELSE (用户未提供任何风格信息):
+    → 进入 Step 3 风格选择
+    → 选择后生成 global_style.md
+    → 输出 global_style.md 给用户保存
+    → 进入 Step 4
+```
+
+#### global_style.md 格式
+
+```markdown
+# Global Figure Style — [项目名/论文名]
+
+## Color Palette
+- Primary (#XXXXXX): [用途说明，如 "核心模块/主流程"]
+- Secondary (#XXXXXX): [用途说明，如 "辅助组件/输出"]
+- Accent (#XXXXXX): [用途说明，如 "创新点/重点高亮"]
+- Neutral (#XXXXXX): [用途说明，如 "连接线/标注文字"]
+- Background (#XXXXXX): [背景色]
+
+## Typography
+- Language: [Chinese / English / Bilingual]
+- Font: sans-serif (e.g., Inter, Noto Sans)
+- Label hierarchy: Module name (14px bold) > Sub-label (12px regular) > Annotation (10px light)
+
+## Shapes & Strokes
+- Module: rounded rectangle, 8px radius, 1.5px stroke
+- Group boundary: dashed rectangle, 1px stroke, 6px dash
+- Arrow: solid, 1.5px, with arrowhead
+- Feedback arrow: curved, dashed, 1px
+- Icon: minimal line-style, 24px
+
+## Visual Rules
+- Shadows: none
+- Gradients: none
+- 3D effects: none
+- Decorative elements: none
+- Background: solid color only
+
+## Technical Specs
+- Resolution: 4K (3840x2160), 300 DPI
+- Default aspect ratio: 16:9 landscape
+- Quality: IEEE/ACM publication standard
+
+## Negative Prompt
+no watermarks, no blurry, no cluttered, no 3D, no gradients, no shadows, no decorative elements, no stock photo style, no text errors, no overlapping labels, no dark background
+```
+
+#### 使用方式
+
+- **第一次调用**：无 global_style → 系统生成并输出 → 用户保存为 `figure_style.md`
+- **后续调用**：用户粘贴 `figure_style.md` 内容到 global_style 字段 → 系统直接使用，不再输出风格文档
+- **跨图一致性**：同一项目所有图共享同一份 global_style，确保色板、字体、形状、规格完全一致
+
+### Step 3: 风格选择（交互式）
+
+仅在 Step 2 中用户未提供 global_style 时执行。
+
+用 `clarify` 提供预设方案，同时允许用户自定义。选择后自动生成 `global_style.md` 并输出给用户保存。
 
 #### 预设方案
 
@@ -46,7 +118,7 @@ user-invocable: true
 
 **默认选 P1**（AI/SE 学术白底简约）。
 
-### Step 3: 预设→参数映射
+### Step 4: 预设→参数映射
 
 根据用户选择的预设，展开为完整参数集：
 
@@ -185,7 +257,7 @@ negative_prompt: no watermarks, no blurry, no 3D, no gradients, no decorative, n
 #### P7: 自定义
 由用户描述风格偏好，AI 衡量后生成参数集。需确保输出格式与上述预设一致。
 
-### Step 4: 三阶段推理生成 Prompt
+### Step 5: 三阶段推理生成 Prompt
 
 内部执行，不输出中间过程：
 
@@ -205,9 +277,21 @@ negative_prompt: no watermarks, no blurry, no 3D, no gradients, no decorative, n
 #### Phase 3: DESIGN
 基于 Phase 1-2 结论 + 用户选定预设参数，生成结构化 prompt。
 
-### Step 5: 输出格式
+### Step 6: 输出格式
 
-**直接输出最终 prompt**，格式如下：
+**输出分两种情况：**
+
+#### 情况 A：用户提供了 global_style（后续调用）
+
+只输出绘图 prompt，不输出 global_style.md。
+
+#### 情况 B：用户未提供 global_style（首次调用）
+
+先输出 `global_style.md`（供用户保存，后续调用时粘贴回来），再输出绘图 prompt。
+
+---
+
+**绘图 prompt 格式如下：**
 
 ```
 === SCENE DESCRIPTION ===
@@ -256,7 +340,7 @@ negative_prompt: no watermarks, no blurry, no 3D, no gradients, no decorative, n
 [from preset]
 ```
 
-### Step 6: 自检
+### Step 7: 自检
 
 输出前内部验证：
 - [ ] 核心故事是否一眼可读？
@@ -270,23 +354,69 @@ negative_prompt: no watermarks, no blurry, no 3D, no gradients, no decorative, n
 
 1. **浅色系优先**：默认预设 P1 严格要求浅色系色板，禁止渐变、3D、阴影
 2. **白底**：学术配图默认白底，除非用户显式要求深色
-3. **结构化输出**：必须按 Step 5 格式输出，不要自由散文
+3. **结构化输出**：必须按 Step 6 格式输出，不要自由散文
 4. **语言一致**：所有 label 使用用户指定的语言
 5. **不要输出 Phase 1/2 的中间推理**：用户只要最终 prompt
 6. **交互最小化**：尽量一次 clarify 搞定，不要多轮追问
+7. **全局风格优先**：如果用户提供了 global_style.md，必须严格遵循其色板/字体/形状/规格，不再走风格选择流程
+8. **首次调用必输出 global_style.md**：未提供时必须生成并输出，确保用户有文档可保存复用
 
 ## Few-Shot 示例
 
-### 示例输入
+### 示例 1：首次调用（无 global_style）
+
+#### 输入
 ```
 visualization_goal: 展示 RAG 系统如何通过检索增强减少 LLM 幻觉
 technical_content: Query→Embedding→Vector DB检索→Context拼接→LLM生成→验证。关键创新：双路检索（稀疏+稠密）+ 自适应重排序
 scene_description: 左到右流水线，中间突出双路检索模块，5-6个组件
 language: 英文
+global_style: (未提供)
 preset: P1
 ```
 
-### 示例输出
+#### 输出（先输出 global_style.md，再输出 prompt）
+
+```markdown
+# Global Figure Style — RAG System Paper
+
+## Color Palette
+- Primary (#4A90D9): core modules / main pipeline stages
+- Secondary (#7EC8A0): output / generation components
+- Accent (#E8855B): innovation highlights / key differentiator
+- Neutral (#8C8C8C): connection lines / annotations
+- Background (#FFFFFF): white
+
+## Typography
+- Language: English
+- Font: sans-serif (Inter)
+- Label hierarchy: Module name (14px bold) > Sub-label (12px regular) > Annotation (10px light)
+
+## Shapes & Strokes
+- Module: rounded rectangle, 8px radius, 1.5px stroke
+- Group boundary: dashed rectangle, 1px stroke, 6px dash
+- Arrow: solid, 1.5px, with arrowhead
+- Feedback arrow: curved, dashed, 1px
+- Icon: minimal line-style, 24px
+
+## Visual Rules
+- Shadows: none
+- Gradients: none
+- 3D effects: none
+- Decorative elements: none
+- Background: solid color only
+
+## Technical Specs
+- Resolution: 4K (3840x2160), 300 DPI
+- Default aspect ratio: 16:9 landscape
+- Quality: IEEE/ACM publication standard
+
+## Negative Prompt
+no watermarks, no blurry, no cluttered, no 3D, no gradients, no shadows, no decorative elements, no stock photo style, no text errors, no overlapping labels, no dark background
+```
+
+---
+
 ```
 === SCENE DESCRIPTION ===
 A left-to-right pipeline diagram showing a Retrieval-Augmented Generation (RAG) system, with the dual-path retrieval module visually emphasized at the center.
@@ -349,6 +479,82 @@ Connections:
 no watermarks, no blurry, no cluttered, no 3D, no gradients, no shadows, no decorative elements, no stock photo style, no text errors, no overlapping labels, no dark background
 ```
 
+### 示例 2：后续调用（有 global_style）
+
+#### 输入
+```
+visualization_goal: 展示 Verifier 模块如何检测并过滤幻觉内容
+technical_content: LLM输出→事实校验(知识库比对)→置信度评分→阈值过滤→高置信输出/低置信回退。关键：多粒度校验（句子级+实体级）
+scene_description: 分支结构，上方是正常输出路径，下方是回退路径，中间是校验模块
+language: 英文
+global_style: (粘贴之前生成的 Global Figure Style — RAG System Paper)
+```
+
+#### 输出（只输出 prompt，不重复输出 global_style.md）
+
+```
+=== SCENE DESCRIPTION ===
+A branching verification diagram showing how the Verifier module detects and filters hallucinated content, with the multi-granularity check visually emphasized.
+The diagram illustrates LLM output flowing through fact verification (KB comparison), confidence scoring, and threshold-based routing — high-confidence passes through, low-confidence triggers fallback.
+Clean flat design on white background, verification module highlighted in warm orange, consistent with project style.
+
+=== VISUAL ELEMENTS ===
+Verification Core (Highlighted):
+• Fact Verifier: rounded rectangle, #E8855B, center, "Fact Verification (KB)"
+• Sentence-level Check: rounded rectangle, #E8855B, center-upper, "Sentence-level"
+• Entity-level Check: rounded rectangle, #E8855B, center-lower, "Entity-level"
+• Confidence Scorer: rounded rectangle, #E8855B, center-right, "Confidence Scoring"
+
+High-confidence Path:
+• Threshold Gate (pass): diamond, #4A90D9, right, "Score ≥ θ"
+• Final Output: rounded rectangle, #7EC8A0, far-right, "High-confidence Output"
+
+Low-confidence Path:
+• Threshold Gate (fail): diamond, #8C8C8C, below-right, "Score < θ"
+• Fallback: rounded rectangle, #8C8C8C, bottom-right, "Fallback / Re-query"
+
+Connections:
+• LLM Output → Fact Verifier: solid arrow, ""
+• Fact Verifier → Sentence-level Check: solid arrow, ""
+• Fact Verifier → Entity-level Check: solid arrow, ""
+• Sentence-level Check → Confidence Scorer: solid arrow, ""
+• Entity-level Check → Confidence Scorer: solid arrow, ""
+• Confidence Scorer → Threshold Gate (pass): solid arrow, "≥ θ"
+• Confidence Scorer → Threshold Gate (fail): solid arrow, "< θ"
+• Threshold Gate (pass) → Final Output: solid arrow, ""
+• Threshold Gate (fail) → Fallback: solid arrow, ""
+
+=== COMPOSITION & LAYOUT ===
+• Direction: left-to-right with vertical branch at threshold
+• Focal point: multi-granularity verification cluster (center, orange accent)
+• Grouping: Verification (orange) | Pass path (blue→green) | Fallback path (gray)
+• White space: 20px between groups, branch fork clearly separated
+
+=== COLOR PALETTE ===
+• Primary (#4A90D9): threshold gate (pass)
+• Secondary (#7EC8A0): final output
+• Accent (#E8855B): verification core (multi-granularity)
+• Neutral (#8C8C8C): fallback path, threshold gate (fail)
+• Background (#FFFFFF)
+
+=== STYLE SPECIFICATIONS ===
+• Medium: clean vector illustration, flat design
+• Aesthetic: professional, technical, publication-ready
+• Shapes: rounded rectangles (8px radius), 1.5px stroke; diamonds for decision
+• Icons: minimal line-style, 24px
+• Typography: English labels, sans-serif, clear hierarchy
+• Shadows: none
+• Gradients: none
+
+=== TECHNICAL SPECS ===
+• Resolution: 4K (3840x2160), 300 DPI
+• Aspect ratio: 16:9 landscape
+• Quality: IEEE/ACM publication standard
+
+=== NEGATIVE PROMPT ===
+no watermarks, no blurry, no cluttered, no 3D, no gradients, no shadows, no decorative elements, no stock photo style, no text errors, no overlapping labels, no dark background
+```
+
 ## Pitfalls
 
 - ❌ 不要用深色/渐变/3D 效果（P1 默认禁止）
@@ -356,3 +562,6 @@ no watermarks, no blurry, no cluttered, no 3D, no gradients, no shadows, no deco
 - ❌ 不要让用户填模板文件，直接交互式收集
 - ❌ 不要生成模糊的色值（如 "light blue"），必须给 hex
 - ❌ 不要遗漏 negative prompt
+- ❌ 用户提供了 global_style 时不要重新生成风格文档，直接用
+- ❌ 首次调用不要跳过 global_style.md 的输出，用户需要保存它
+- ❌ 不要在 global_style.md 里留占位符，所有值必须填充具体值
