@@ -64,8 +64,8 @@ Every color is a precise hex value. Every element has shape, color, position, an
 
 | File | Description |
 |------|-------------|
-| `SKILL.md` | The skill definition — load into any compatible agent |
-| `template.md` | Legacy prompt template (v1, manual fill-in) |
+| `scientific-figure-prompt/SKILL.md` | The skill definition — load into any compatible agent |
+| `scientific-figure-prompt/template.md` | Legacy prompt template (v1, manual fill-in) |
 
 ## License
 
